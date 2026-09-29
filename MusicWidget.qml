@@ -374,6 +374,7 @@ Item {
         Text {
           width: parent.width
           text: root.title
+          textFormat: Text.PlainText
           color: root.fgColor
           font.family: Style.font.family
           font.pixelSize: Style.font.body
@@ -386,6 +387,7 @@ Item {
         Text {
           width: parent.width
           text: root.artist + (root.album ? " \u{00B7} " + root.album : "")
+          textFormat: Text.PlainText
           color: root.mutedColor
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
@@ -549,6 +551,7 @@ Item {
         Text {
           width: parent.width
           text: root.title
+          textFormat: Text.PlainText
           color: root.fgColor
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
@@ -560,6 +563,7 @@ Item {
         Text {
           width: parent.width
           text: root.artist
+          textFormat: Text.PlainText
           color: root.mutedColor
           font.family: Style.font.family
           font.pixelSize: Style.space(9)
@@ -824,6 +828,7 @@ Item {
         Text {
           width: parent.width
           text: root.title
+          textFormat: Text.PlainText
           font.bold: true
           color: root.fgColor
           font.family: Style.font.family
@@ -835,6 +840,7 @@ Item {
         Text {
           width: parent.width
           text: root.artist
+          textFormat: Text.PlainText
           color: root.mutedColor
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
@@ -850,6 +856,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: root.formatTime(root.positionSec)
+            textFormat: Text.PlainText
             color: root.mutedColor
             font.pixelSize: Style.space(9)
           }
@@ -857,6 +864,7 @@ Item {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             text: root.formatTime(root.durationSec)
+            textFormat: Text.PlainText
             color: root.mutedColor
             font.pixelSize: Style.space(9)
           }
@@ -1228,6 +1236,7 @@ Item {
         Text {
           width: parent.width
           text: root.title
+          textFormat: Text.PlainText
           color: "#f4f4f5"
           font.family: Style.font.family
           font.pixelSize: Style.space(12) * root.widgetScale
@@ -1241,6 +1250,7 @@ Item {
         Text {
           width: parent.width
           text: root.artist + (root.album ? " \u{00B7} " + root.album : "")
+          textFormat: Text.PlainText
           color: Util.alpha(root.fgColor, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.space(9) * root.widgetScale
@@ -1281,6 +1291,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: root.formatTime(root.positionSec)
+            textFormat: Text.PlainText
             color: Util.alpha(root.fgColor, 0.45)
             font.family: "JetBrainsMono NF"
             font.pixelSize: Style.space(8) * root.widgetScale
@@ -1291,6 +1302,7 @@ Item {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             text: root.formatTime(root.durationSec)
+            textFormat: Text.PlainText
             color: Util.alpha(root.fgColor, 0.45)
             font.family: "JetBrainsMono NF"
             font.pixelSize: Style.space(8) * root.widgetScale
