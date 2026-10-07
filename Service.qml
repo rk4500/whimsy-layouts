@@ -395,7 +395,7 @@ Item {
     }
   }
 
-  // Called by archer.background the moment its reveal animation starts.
+  // Called by io.github.rk4500.archer-background the moment its reveal animation starts.
   function wallpaperRevealStarted() {
     root._applyPending()
   }

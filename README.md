@@ -21,7 +21,7 @@ Pick a style from the bar pill popup, click to place a widget on the desktop, dr
 
 This fork keeps a separate widget layout per wallpaper (stored in `~/.local/state/omarchy/whimsy/layouts.json`, keyed `<theme>/<file>`). A wallpaper you haven't visited inherits the layout you're leaving; one you emptied stays empty. On a wallpaper change the widgets wipe in with the same slanted reveal the wallpaper uses.
 
-For the wipe to line up with the wallpaper's, pair it with [archer.background](https://github.com/rk4500/omarchy-archer-background), which tells whimsy when the reveal starts. It is optional: with the stock background plugin, whimsy swaps layouts immediately and plays its own wipe slightly ahead; without any layout differences, nothing animates.
+For the wipe to line up with the wallpaper's, pair it with [io.github.rk4500.archer-background](https://github.com/rk4500/omarchy-archer-background), which tells whimsy when the reveal starts. It is optional: with the stock background plugin, whimsy swaps layouts immediately and plays its own wipe slightly ahead; without any layout differences, nothing animates.
 
 ## Features
 
