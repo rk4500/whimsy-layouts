@@ -374,12 +374,16 @@ Item {
     var wasSynced = root._activeWallpaper !== ""
     root._activeWallpaper = wp
     if (Array.isArray(saved)) {
-      if (wasSynced) {
+      if (wasSynced && Reg.hookPresent()) {
         // Hold the swap until the wallpaper reveal actually starts (the
-        // background clone calls wallpaperRevealStarted); the timer covers
+        // background plugin calls wallpaperRevealStarted); the timer covers
         // switches that never animate.
         root._pendingList = root.cloneList(saved)
         revealFallback.restart()
+      } else if (wasSynced) {
+        // No cooperating background plugin: swap right away, wiping on our own.
+        root.applyList(root.cloneList(saved), true)
+        saveTimer.restart()
       } else {
         root.applyList(root.cloneList(saved), false)
         saveTimer.restart()

@@ -11,3 +11,17 @@ function set(inst) {
 function get() {
   return _service
 }
+
+// A cooperating background plugin (archer.background) announces itself so
+// whimsy knows whether to wait for its "reveal started" signal or apply a
+// layout change straight away. Kept here, in the shared singleton, so it
+// doesn't matter which plugin loaded first.
+var _hookPresent = false
+
+function markHook() {
+  _hookPresent = true
+}
+
+function hookPresent() {
+  return _hookPresent
+}
