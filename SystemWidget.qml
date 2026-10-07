@@ -28,9 +28,13 @@ Item {
   property real gpuMemUsed: 0
   property real gpuMemTotal: 0
   property real gpuMemPct: 0
+  property bool batteryAvail: false
+  property real batteryWatts: 0
+  property bool batteryCharging: false
 
   readonly property bool isPill: variant.indexOf("pill-") === 0
   readonly property bool isRing: variant.indexOf("ring-") === 0
+  readonly property bool isCard: variant.indexOf("card-") === 0
   readonly property string channel: {
     if (variant === "pill-cpu" || variant === "ring-cpu") return "cpu"
     if (variant === "pill-ram" || variant === "ring-ram") return "ram"
@@ -39,12 +43,20 @@ Item {
     return "cpu"
   }
 
+  // Cards poll on a slower cadence than pills/rings — pass the interval
+  // (seconds) as an argv so each widget's own helper process controls its
+  // own pace instead of throttling the shared daemon for every instance.
+  readonly property real pollInterval: isCard ? 2 : 1
+
   width: {
     if (isPill) {
       return (variant === "pill-temps" ? Style.space(220) : Style.space(195)) * widgetScale
     }
     if (isRing) {
       return Style.space(120) * widgetScale
+    }
+    if (isCard) {
+      return Style.space(310) * widgetScale
     }
     return Style.space(195) * widgetScale
   }
@@ -56,11 +68,15 @@ Item {
     if (isRing) {
       return Style.space(136) * widgetScale
     }
+    if (isCard) {
+      return Style.space(116) * widgetScale
+    }
     return Style.space(48) * widgetScale
   }
 
   function startProcess() {
     if (root.visible && root.active && !sysProc.running) {
+      sysProc.command = ["python3", root.helperPath, String(root.pollInterval)]
       sysProc.running = true
     }
   }
@@ -77,7 +93,6 @@ Item {
 
   Process {
     id: sysProc
-    command: ["python3", root.helperPath]
     running: false
     stdout: SplitParser {
       onRead: function(line) {
@@ -99,6 +114,11 @@ Item {
             root.gpuMemUsed = Number(data.gpu.mem_used) || 0
             root.gpuMemTotal = Number(data.gpu.mem_total) || 0
             root.gpuMemPct = Number(data.gpu.mem_pct) || 0
+          }
+          if (data.battery) {
+            root.batteryAvail = !!data.battery.avail
+            root.batteryWatts = Number(data.battery.watts) || 0
+            root.batteryCharging = !!data.battery.charging
           }
         } catch (e) {
           // parse error
@@ -149,5 +169,21 @@ Item {
     gpuTemp: root.gpuTemp
     gpuMemUsed: root.gpuMemUsed
     gpuMemTotal: root.gpuMemTotal
+  }
+
+  // =========================================================================
+  // 3. OVERVIEW CARD (CPU + TEMP + BATTERY, turntable-style proportions)
+  // =========================================================================
+  SysOverviewWidget {
+    anchors.centerIn: parent
+    visible: root.isCard
+    widgetScale: root.widgetScale
+    fgColor: root.fgColor
+    accentColor: root.accentColor
+    cpuPct: root.cpuPct
+    cpuTemp: root.cpuTemp
+    batteryAvail: root.batteryAvail
+    batteryWatts: root.batteryWatts
+    batteryCharging: root.batteryCharging
   }
 }

@@ -74,6 +74,42 @@ def get_cpu_temp():
             pass
     return round(max(temps), 0) if temps else 0.0
 
+def get_battery_info():
+    try:
+        bat_dirs = glob.glob("/sys/class/power_supply/BAT*")
+        if not bat_dirs:
+            return {"avail": False, "watts": 0.0, "charging": False, "pct": 0.0}
+        bat = bat_dirs[0]
+
+        def read(name):
+            try:
+                with open(os.path.join(bat, name), "r") as f:
+                    return f.read().strip()
+            except Exception:
+                return ""
+
+        status = read("status")
+        charging = status.lower() == "charging"
+
+        watts = 0.0
+        power_now = read("power_now")
+        if power_now:
+            watts = abs(float(power_now)) / 1_000_000.0
+        else:
+            current_now = read("current_now")
+            voltage_now = read("voltage_now")
+            if current_now and voltage_now:
+                watts = abs(float(current_now) * float(voltage_now)) / 1_000_000_000_000.0
+
+        pct = 0.0
+        capacity = read("capacity")
+        if capacity:
+            pct = float(capacity)
+
+        return {"avail": True, "watts": round(watts, 1), "charging": charging, "pct": pct}
+    except Exception:
+        return {"avail": False, "watts": 0.0, "charging": False, "pct": 0.0}
+
 def get_gpu_info():
     if not has_nvidia:
         return {"avail": False, "util": 0.0, "temp": 0.0, "mem_used": 0.0, "mem_total": 0.0, "mem_pct": 0.0}
@@ -108,12 +144,18 @@ def get_gpu_info():
     return {"avail": False, "util": 0.0, "temp": 0.0, "mem_used": 0.0, "mem_total": 0.0, "mem_pct": 0.0}
 
 def main():
+    interval = 1.0
+    if len(sys.argv) > 1:
+        try:
+            interval = max(0.5, float(sys.argv[1]))
+        except ValueError:
+            pass
+
     prev_idle, prev_total = get_cpu_times()
-    gpu_counter = 0
     cached_gpu = get_gpu_info()
 
     while True:
-        time.sleep(1.0)
+        time.sleep(interval)
         curr_idle, curr_total = get_cpu_times()
         idle_delta = curr_idle - prev_idle
         total_delta = curr_total - prev_total
@@ -125,12 +167,8 @@ def main():
 
         ram_pct, ram_used, ram_total = get_mem_info()
         cpu_temp = get_cpu_temp()
-
-        # Query GPU every 1s (nvidia-smi is fast enough)
-        gpu_counter += 1
-        if gpu_counter >= 1:
-            gpu_counter = 0
-            cached_gpu = get_gpu_info()
+        cached_gpu = get_gpu_info()
+        battery = get_battery_info()
 
         data = {
             "cpu": {
@@ -142,7 +180,8 @@ def main():
                 "used": ram_used,
                 "total": ram_total
             },
-            "gpu": cached_gpu
+            "gpu": cached_gpu,
+            "battery": battery
         }
 
         try:

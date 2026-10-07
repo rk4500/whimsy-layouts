@@ -16,9 +16,19 @@ Item {
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string statePath: home + "/.local/state/omarchy/whimsy/widgets.json"
+  readonly property string settingsPath: home + "/.local/state/omarchy/whimsy/settings.json"
+  readonly property string layoutsPath: home + "/.local/state/omarchy/whimsy/layouts.json"
+  readonly property string stateHome: home + "/.local/state"
+  readonly property string wallpaperLink: home + "/.local/state/omarchy/current/background"
 
   // Persisted shape: [{ id, style, screen, x, y, scale? }]
   property var widgets: []
+  // When true, placed cards hide their edit chrome (drag/resize/rotate/lock/
+  // remove) and stop intercepting clicks for selection — a widget's own
+  // controls (e.g. media play/pause) keep working either way, since they're
+  // separate MouseAreas the card's handlers never touch.
+  property bool editLocked: false
+  property bool _settingsInitialized: false
   // Per-screen bottom-layer surfaces: { screenName: DesktopWidget }
   property var _layers: ({})
   // Never write state before the file has been read at least once: a shell
@@ -26,10 +36,25 @@ Item {
   // in-memory list.
   property bool _initialized: false
 
+  // Per-wallpaper layouts: { "<resolved wallpaper path>": [entry, ...] }.
+  // `widgets` is always the live layout of the current wallpaper; this map
+  // holds every wallpaper's saved copy. Three distinct states per wallpaper:
+  //   key absent / null -> never visited: copy the current layout on arrival
+  //   []                -> deliberately empty: show nothing, don't copy
+  //   [entries]         -> restore exactly
+  property var layouts: ({})
+  property bool _layoutsLoaded: false
+  property string currentWallpaper: ""
+  // Wallpaper whose layout `widgets` currently represents ("" until synced).
+  property string _activeWallpaper: ""
+  // Layout for the new wallpaper, waiting for the reveal to start.
+  property var _pendingList: null
+
   readonly property int widgetCount: widgets.length
 
   Component.onCompleted: {
     Reg.set(root)
+    wallpaperProc.running = true
     console.log("[whimsy] service online; state=",
       "component=", root._layerComponent.status,
       root._layerComponent.errorString())
@@ -55,13 +80,14 @@ Item {
             locked: !!c.locked
           })
         }
-        layers.push({ screen: name, cards: ids })
+        layers.push({ screen: name, cards: ids, wiping: l.wiping })
       }
       return JSON.stringify({
         compStatus: root._layerComponent.status,
         compError: root._layerComponent.errorString(),
         widgets: root.widgets,
-        layers: layers
+        layers: layers,
+        editLocked: root.editLocked
       })
     }
 
@@ -74,6 +100,18 @@ Item {
       root.removeWidget(id)
       return "ok"
     }
+
+    function setEditLocked(locked: string): string {
+      root.setEditLocked(locked === "true" || locked === "1")
+      return "ok"
+    }
+  }
+
+  function setEditLocked(v) {
+    v = !!v
+    if (v === root.editLocked) return
+    root.editLocked = v
+    root.saveSettings()
   }
 
   function screenByName(name) {
@@ -243,6 +281,7 @@ Item {
       if (root._initialized) return
       root._initialized = true
       root.widgets = []
+      root._syncWallpaper()
       return
     }
 
@@ -275,14 +314,26 @@ Item {
     // Skip redundant reloads triggered by our own writes.
     if (root.canonical() === JSON.stringify(list)) {
       root._initialized = true
+      root._syncWallpaper()
       return
     }
 
     root._initialized = true
+    root.applyList(list)
+    // External edit of widgets.json: mirror it into this wallpaper's layout.
+    if (root._activeWallpaper !== "") root.save()
+    root._syncWallpaper()
+  }
 
-    // Reconcile: drop widgets that vanished from the file.
+  // Make `list` the live layout: drop cards that vanished, create/update
+  // the rest.
+  // `animate` plays the wallpaper-synced wipe (layout change from a
+  // wallpaper switch); everything else swaps instantly.
+  function applyList(list, animate) {
+    var changed = animate && root.canonical() !== JSON.stringify(list)
     for (var name in root._layers) {
       var layer = root._layers[name]
+      var leaving = []
       for (var id in layer.cards) {
         var still = false
         for (var k = 0; k < list.length; k++) {
@@ -291,18 +342,116 @@ Item {
             break
           }
         }
-        if (!still) layer.removeCard(id)
+        if (!still) leaving.push(id)
       }
+      if (changed) layer.beginWipe(leaving)
+      else leaving.forEach(function(lid) { layer.removeCard(lid) })
     }
 
     root.widgets = list
     list.forEach(function(entry) {
-      Qt.callLater(function() { root.materializeEntry(entry) })
+      if (changed) root.materializeEntry(entry)
+      else Qt.callLater(function() { root.materializeEntry(entry) })
     })
+  }
+
+  function cloneList(list) {
+    return JSON.parse(JSON.stringify(list || []))
+  }
+
+  // ---- per-wallpaper layouts ------------------------------------------------
+
+  // Switch `widgets` to the layout belonging to the current wallpaper. The
+  // layout being left is already stored: save() mirrors every change into
+  // layouts[_activeWallpaper] as it happens.
+  function _syncWallpaper() {
+    if (!root._initialized || !root._layoutsLoaded || root.currentWallpaper === "") return
+    var wp = root.currentWallpaper
+    if (wp === root._activeWallpaper) return
+
+    var saved = root.layouts[wp]
+    // Only a live switch animates; the first sync at startup applies instantly.
+    var wasSynced = root._activeWallpaper !== ""
+    root._activeWallpaper = wp
+    if (Array.isArray(saved)) {
+      if (wasSynced) {
+        // Hold the swap until the wallpaper reveal actually starts (the
+        // background clone calls wallpaperRevealStarted); the timer covers
+        // switches that never animate.
+        root._pendingList = root.cloneList(saved)
+        revealFallback.restart()
+      } else {
+        root.applyList(root.cloneList(saved), false)
+        saveTimer.restart()
+      }
+    } else {
+      // First visit (absent or null): inherit the layout we're leaving.
+      root.layouts[wp] = root.cloneList(root.widgets)
+      root.saveLayouts()
+    }
+  }
+
+  // Called by archer.background the moment its reveal animation starts.
+  function wallpaperRevealStarted() {
+    root._applyPending()
+  }
+
+  function _applyPending() {
+    revealFallback.stop()
+    if (root._pendingList === null) return
+    var list = root._pendingList
+    root._pendingList = null
+    root.applyList(list, true)
+    saveTimer.restart()
+  }
+
+  Timer {
+    id: revealFallback
+    interval: 1200
+    onTriggered: root._applyPending()
+  }
+
+  function loadLayoutsFromText(text) {
+    var raw = String(text || "").trim()
+    var parsed = {}
+    if (raw !== "") {
+      try {
+        parsed = JSON.parse(raw)
+      } catch (e) {
+        // Corrupt file: leave per-wallpaper layouts off this session rather
+        // than overwrite it.
+        console.warn("whimsy: layouts.json unreadable; per-wallpaper layouts disabled")
+        return
+      }
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) parsed = {}
+    root.layouts = parsed
+    root._layoutsLoaded = true
+    root._syncWallpaper()
+  }
+
+  function saveLayouts() {
+    if (!root._layoutsLoaded) return
+    layoutsSaveTimer.restart()
+  }
+
+  function flushLayouts() {
+    if (layoutsSaveProc.running) {
+      layoutsSaveTimer.restart()
+      return
+    }
+    layoutsSaveProc.command = ["sh", "-c",
+      'd=$(dirname -- "$1"); mkdir -p -- "$d"; printf "%s" "$2" > "$1"',
+      "whimsy-layouts-save", root.layoutsPath, JSON.stringify(root.layouts)]
+    layoutsSaveProc.running = true
   }
 
   function save() {
     if (!root._initialized) return
+    if (root._activeWallpaper !== "" && root._pendingList === null) {
+      root.layouts[root._activeWallpaper] = root.cloneList(root.widgets)
+      root.saveLayouts()
+    }
     if (saveTimer.running) return
     saveTimer.restart()
   }
@@ -326,6 +475,67 @@ Item {
     onTriggered: root.flushSave()
   }
 
+  Timer {
+    id: layoutsSaveTimer
+    interval: 200
+    onTriggered: root.flushLayouts()
+  }
+
+  Process {
+    id: layoutsSaveProc
+    onExited: function(exitCode) {
+      if (exitCode !== 0)
+        console.warn("whimsy: layouts save failed via:", root.layoutsPath)
+    }
+  }
+
+  FileView {
+    id: layoutsFile
+    path: root.layoutsPath
+    printErrors: false
+    onLoaded: root.loadLayoutsFromText(text())
+    onLoadFailed: {
+      root.layouts = ({})
+      root._layoutsLoaded = true
+      root._syncWallpaper()
+    }
+  }
+
+  // The wallpaper symlink is replaced (ln -nsf), so a watch on the link itself
+  // would go stale with the old inode. Watch its directory instead and re-read
+  // the resolved target when the link is recreated.
+  Process {
+    id: wallpaperProc
+    // Key = "<theme>/<file>" for theme wallpapers (current/theme is a copy of
+    // the active theme, so its path alone can't tell two themes' same-named
+    // files apart); the full path for anything else.
+    command: ["sh", "-c",
+      'p=$(readlink -f "$1") || exit 0; case "$p" in "$2"/*) printf "%s/%s" "$(cat "$3" 2>/dev/null)" "${p##*/}";; *) printf "%s" "$p";; esac',
+      "whimsy-wallpaper", root.wallpaperLink,
+      root.stateHome + "/omarchy/current/theme/backgrounds",
+      root.stateHome + "/omarchy/current/theme.name"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var p = String(text || "").trim()
+        if (p === "" || p === root.currentWallpaper) return
+        root.currentWallpaper = p
+        root._syncWallpaper()
+      }
+    }
+  }
+
+  Process {
+    id: wallpaperWatcher
+    running: true
+    command: ["inotifywait", "-m", "-q", "-e", "create,moved_to",
+      "--format", "%f", root.stateHome + "/omarchy/current"]
+    stdout: SplitParser {
+      onRead: function(name) {
+        if (name === "background" && !wallpaperProc.running) wallpaperProc.running = true
+      }
+    }
+  }
+
   Process {
     id: saveProc
     onExited: function(exitCode) {
@@ -346,6 +556,47 @@ Item {
       // but mark initialized so user placements still persist.
       root._initialized = true
       root.widgets = []
+      root._syncWallpaper()
+    }
+  }
+
+  // ---- edit-lock settings persistence --------------------------------------
+
+  function saveSettings() {
+    if (!root._settingsInitialized) return
+    settingsSaveProc.command = ["sh", "-c",
+      'd=$(dirname -- "$1"); mkdir -p -- "$d"; printf "%s" "$2" > "$1"',
+      "whimsy-settings-save", root.settingsPath,
+      JSON.stringify({ editLocked: root.editLocked })]
+    settingsSaveProc.running = true
+  }
+
+  Process {
+    id: settingsSaveProc
+    onExited: function(exitCode) {
+      if (exitCode !== 0)
+        console.warn("whimsy: settings save failed via:", root.settingsPath)
+    }
+  }
+
+  FileView {
+    id: settingsFile
+    path: root.settingsPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var parsed = JSON.parse(String(text() || "").trim())
+        root.editLocked = parsed && parsed.editLocked === true
+      } catch (e) {
+        root.editLocked = false
+      }
+      root._settingsInitialized = true
+    }
+    onLoadFailed: {
+      root.editLocked = false
+      root._settingsInitialized = true
     }
   }
 
@@ -353,6 +604,9 @@ Item {
   Timer {
     interval: 1200
     running: true
-    onTriggered: stateFile.reload()
+    onTriggered: {
+      stateFile.reload()
+      settingsFile.reload()
+    }
   }
 }

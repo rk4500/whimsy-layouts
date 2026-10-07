@@ -519,6 +519,15 @@ var WIDGET_STYLES = [
     kind: "system",
     variant: "ring-gpu"
   },
+  // 3. Overview card (turntable-shaped: CPU ring + temp + battery wattage)
+  {
+    id: "sys-card-overview",
+    category: "system",
+    name: "System Overview Card",
+    desc: "CPU ring, system temp, and battery wattage in one wide card — updates every 2s",
+    kind: "system",
+    variant: "card-overview"
+  },
 
   // Weather (Category: weather)
   {

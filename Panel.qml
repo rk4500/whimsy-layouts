@@ -56,11 +56,19 @@ Panel {
   }
 
   function placeWidget(styleId) {
-    var svc = root.dayService
+    var svc = Reg.get()
     if (!svc) return
     var screenObj = root.panelScreen()
     svc.placeWidget(styleId, screenObj ? screenObj.name : "")
     root.close()
+  }
+
+  readonly property bool editLocked: !!(root.dayService && root.dayService.editLocked)
+
+  function toggleEditLocked() {
+    var svc = Reg.get()
+    if (!svc) return
+    svc.setEditLocked(!svc.editLocked)
   }
 
   KeyboardPanel {
@@ -111,49 +119,101 @@ Panel {
       width: parent.width
       spacing: Style.space(14)
 
-      // ---- category tabs -------------------------------------------------
-      Row {
+      // ---- category tabs + edit-lock toggle -------------------------------
+      Item {
         width: parent.width
-        spacing: Style.space(4)
+        height: Style.space(28)
 
-        Repeater {
-          model: Model.categories()
+        Row {
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(4)
 
-          Rectangle {
-            required property var modelData
-            required property int index
-            width: tabText.implicitWidth + Style.space(16)
-            height: Style.space(28)
-            radius: Style.space(8)
-            color: root.catIndex === index
-              ? Util.alpha(root.barForeground, 0.18)
-              : (tabArea.containsMouse ? Util.alpha(root.barForeground, 0.08) : "transparent")
+          Repeater {
+            model: Model.categories()
 
-            Behavior on color { ColorAnimation { duration: 120 } }
-
-            Text {
-              id: tabText
-              anchors.centerIn: parent
-              text: modelData.name.toUpperCase()
+            Rectangle {
+              required property var modelData
+              required property int index
+              width: tabText.implicitWidth + Style.space(16)
+              height: Style.space(28)
+              radius: Style.space(8)
               color: root.catIndex === index
-                ? root.barForeground
-                : Util.alpha(root.barForeground, 0.55)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              font.weight: root.catIndex === index ? Font.Bold : Font.Normal
-              font.letterSpacing: 1
-              renderType: Text.NativeRendering
-            }
+                ? Util.alpha(root.barForeground, 0.18)
+                : (tabArea.containsMouse ? Util.alpha(root.barForeground, 0.08) : "transparent")
 
-            MouseArea {
-              id: tabArea
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.catIndex = index
+              Behavior on color { ColorAnimation { duration: 120 } }
+
+              Text {
+                id: tabText
+                anchors.centerIn: parent
+                text: modelData.name.toUpperCase()
+                color: root.catIndex === index
+                  ? root.barForeground
+                  : Util.alpha(root.barForeground, 0.55)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                font.weight: root.catIndex === index ? Font.Bold : Font.Normal
+                font.letterSpacing: 1
+                renderType: Text.NativeRendering
+              }
+
+              MouseArea {
+                id: tabArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.catIndex = index
+              }
             }
           }
         }
+
+        // Edit-lock toggle: when locked, placed desktop cards hide their
+        // drag/resize/rotate/remove chrome and stop eating clicks for
+        // selection — a widget's own controls (media play/pause, etc.)
+        // keep working regardless, since those are separate MouseAreas.
+        Rectangle {
+          id: lockToggle
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(28)
+          height: Style.space(28)
+          radius: Style.space(8)
+          color: root.editLocked
+            ? Util.alpha(Color.accent, 0.22)
+            : (lockToggleArea.containsMouse ? Util.alpha(root.barForeground, 0.08) : "transparent")
+
+          Behavior on color { ColorAnimation { duration: 120 } }
+
+          Text {
+            anchors.centerIn: parent
+            text: root.editLocked ? "\u{F023}" : "\u{F09C}"
+            color: root.editLocked ? Color.accent : Util.alpha(root.barForeground, 0.7)
+            font.family: Style.font.family
+            font.pixelSize: Style.space(12)
+            renderType: Text.NativeRendering
+          }
+
+          MouseArea {
+            id: lockToggleArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleEditLocked()
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        visible: root.editLocked
+        text: "Desktop widgets locked — drag/resize/remove hidden"
+        horizontalAlignment: Text.AlignHCenter
+        color: Util.alpha(root.barForeground, 0.5)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        renderType: Text.NativeRendering
       }
 
       Rectangle {

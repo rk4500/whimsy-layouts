@@ -33,6 +33,13 @@ Item {
   rotation: startRotation
   transformOrigin: Item.Center
 
+  // Cards present in both the old and new layout glide to their new geometry
+  // while the layer's wallpaper wipe runs.
+  Behavior on x { enabled: card.desktop.wiping; NumberAnimation { duration: card.desktop.wipeDuration; easing.type: Easing.InOutCubic } }
+  Behavior on y { enabled: card.desktop.wiping; NumberAnimation { duration: card.desktop.wipeDuration; easing.type: Easing.InOutCubic } }
+  Behavior on rotation { enabled: card.desktop.wiping; NumberAnimation { duration: card.desktop.wipeDuration; easing.type: Easing.InOutCubic } }
+  Behavior on textScale { enabled: card.desktop.wiping; NumberAnimation { duration: card.desktop.wipeDuration; easing.type: Easing.InOutCubic } }
+
   readonly property var widgetStyle: Model.styleFor(styleId)
   readonly property string widgetKind: widgetStyle.kind || "text"
   readonly property string widgetVariant: widgetStyle.variant || ""
@@ -256,11 +263,13 @@ Item {
   }
 
   // ---- dotted box (shown on hover or when selected) -----------------------
+  readonly property bool editLocked: !!(card.service && card.service.editLocked)
+
   Shape {
     id: dashedBox
     anchors.fill: parent
-    visible: card.hovered || card.selected
-    opacity: (card.hovered || card.selected) ? 0.3 : 0
+    visible: (card.hovered || card.selected) && !card.editLocked
+    opacity: (card.hovered || card.selected) && !card.editLocked ? 0.3 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
 
     ShapePath {
@@ -287,8 +296,8 @@ Item {
     width: Style.space(16)
     height: Style.space(16)
     radius: width / 2
-    visible: card.hovered || card.selected
-    opacity: (card.hovered || card.selected) ? 1 : 0
+    visible: (card.hovered || card.selected) && !card.editLocked
+    opacity: (card.hovered || card.selected) && !card.editLocked ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
     color: card.locked
       ? Util.alpha(Color.accent, 0.3)
@@ -356,8 +365,8 @@ Item {
     width: Style.space(16)
     height: Style.space(16)
     radius: width / 2
-    visible: card.hovered || card.selected
-    opacity: card.hovered ? 1 : (card.selected ? 0.85 : 0)
+    visible: (card.hovered || card.selected) && !card.editLocked
+    opacity: card.editLocked ? 0 : (card.hovered ? 1 : (card.selected ? 0.85 : 0))
     Behavior on opacity { NumberAnimation { duration: 120 } }
     color: Util.alpha(Color.popups.background, 0.9)
     border.width: 1
@@ -392,8 +401,8 @@ Item {
     // and half hangs out — the natural "grab here to resize" affordance.
     x: card.width - resizeDot.width / 2
     y: card.height - resizeDot.height / 2
-    visible: (card.hovered || card.selected) && !card.locked
-    opacity: (card.hovered || card.selected) && !card.locked ? 1 : 0
+    visible: (card.hovered || card.selected) && !card.locked && !card.editLocked
+    opacity: (card.hovered || card.selected) && !card.locked && !card.editLocked ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
     width: Style.space(16)
     height: Style.space(16)
@@ -425,7 +434,7 @@ Item {
       id: resizer
       target: null
       acceptedButtons: Qt.LeftButton
-      enabled: card.inputReady && !card.locked
+      enabled: card.inputReady && !card.locked && !card.editLocked
       // Does NOT approve being taken over by the card's move DragHandler,
       // so a press on the corner always stays the resize grab.
       grabPermissions: PointerHandler.CanTakeOverFromItems
@@ -462,14 +471,14 @@ Item {
     anchors.fill: parent
     hoverEnabled: false
     acceptedButtons: Qt.RightButton
-    onPressed: { if (card.inputReady && mouse.button === Qt.RightButton) card.removeRequested() }
+    onPressed: { if (card.inputReady && !card.editLocked && mouse.button === Qt.RightButton) card.removeRequested() }
   }
 
   // A plain click (press + release without drag) selects the card so its
   // chrome shows. Drags are left to the dragger below.
   TapHandler {
     acceptedButtons: Qt.LeftButton
-    enabled: card.inputReady
+    enabled: card.inputReady && !card.editLocked
     onTapped: card.grabSelect()
   }
 
@@ -481,7 +490,7 @@ Item {
     id: dragger
     target: null
     acceptedButtons: Qt.LeftButton
-    enabled: card.inputReady && !card.locked
+    enabled: card.inputReady && !card.locked && !card.editLocked
     // Never compete with the corner resize handler — a press aimed at the
     // resize dot must go to the resizer, not start moving the card.
     grabPermissions: PointerHandler.CanTakeOverFromItems
@@ -514,7 +523,7 @@ Item {
     z: 10
     x: -rotateDot.width / 2
     y: card.height - rotateDot.height / 2
-    visible: (card.hovered || card.selected) && !card.locked
+    visible: (card.hovered || card.selected) && !card.locked && !card.editLocked
     opacity: visible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
     width: Style.space(16)
@@ -544,7 +553,7 @@ Item {
       id: rotator
       target: null
       acceptedButtons: Qt.LeftButton
-      enabled: card.inputReady && !card.locked
+      enabled: card.inputReady && !card.locked && !card.editLocked
       grabPermissions: PointerHandler.CanTakeOverFromItems
         | PointerHandler.CanTakeOverFromHandlersOfSameType
 

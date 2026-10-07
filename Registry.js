@@ -1,6 +1,7 @@
-// Registry.js — engine-wide bridge. QML JS libraries are singletons per
-// process, so a bar-widget instance on any monitor and the popup both reach
-// the plugin's singleton day service without caring about load order.
+.pragma library
+// Registry.js — engine-wide bridge. `.pragma library` makes this module a
+// true engine-wide singleton; without it, each importing QML file gets its
+// own private copy and never sees another file's set().
 var _service = null
 
 function set(inst) {

@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
@@ -30,6 +32,109 @@ PanelWindow {
   WlrLayershell.namespace: "whimsy-widget"
   WlrLayershell.layer: WlrLayer.Bottom
   WlrLayershell.keyboardFocus: layer.keyboardActive ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+  // ---- wallpaper-synced wipe ----------------------------------------------
+  // Mirrors the background plugin's reveal (same slanted wipe, 420ms
+  // InOutCubic) so a layout change reads as part of the wallpaper change.
+  // Leaving cards live in leaveGroup (visible outside the wipe), entering
+  // cards in enterGroup (visible inside it); shared cards glide in place.
+  readonly property int wipeDuration: 420
+  property bool wiping: false
+  property real wipe: 1
+  property var _leavingCards: []
+  property var _enteringCards: []
+
+  function beginWipe(leavingIds) {
+    finishWipe()
+    for (var i = 0; i < leavingIds.length; i++) {
+      var card = layer.cards[leavingIds[i]]
+      if (!card) continue
+      delete layer.cards[leavingIds[i]]
+      if (layer.selectedId === leavingIds[i]) layer.selectedId = ""
+      card.enabled = false
+      card.parent = leaveGroup
+      layer._leavingCards.push(card)
+    }
+    layer.wipe = 0
+    layer.wiping = true
+    wipeAnim.restart()
+  }
+
+  function finishWipe() {
+    wipeAnim.stop()
+    for (var i = 0; i < layer._leavingCards.length; i++) layer._leavingCards[i].destroy()
+    for (var j = 0; j < layer._enteringCards.length; j++) {
+      if (layer._enteringCards[j]) layer._enteringCards[j].parent = layer.contentItem
+    }
+    layer._leavingCards = []
+    layer._enteringCards = []
+    layer.wipe = 1
+    layer.wiping = false
+  }
+
+  NumberAnimation {
+    id: wipeAnim
+    target: layer
+    property: "wipe"
+    from: 0
+    to: 1
+    duration: layer.wipeDuration
+    easing.type: Easing.InOutCubic
+    onFinished: layer.finishWipe()
+  }
+
+  Item {
+    id: wipeMask
+    anchors.fill: parent
+    visible: false
+    layer.enabled: true
+
+    readonly property real slant: -0.18
+    readonly property real centerTop: width / 2 - slant * height / 2
+    readonly property real centerBottom: width / 2 + slant * height / 2
+    readonly property real reach: width / 2 + Math.abs(slant) * height / 2 + 4
+    readonly property real spread: reach * layer.wipe
+
+    Shape {
+      anchors.fill: parent
+      antialiasing: true
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        fillColor: "white"
+        strokeColor: "transparent"
+        startX: wipeMask.centerTop - wipeMask.spread; startY: 0
+        PathLine { x: wipeMask.centerTop + wipeMask.spread; y: 0 }
+        PathLine { x: wipeMask.centerBottom + wipeMask.spread; y: wipeMask.height }
+        PathLine { x: wipeMask.centerBottom - wipeMask.spread; y: wipeMask.height }
+        PathLine { x: wipeMask.centerTop - wipeMask.spread; y: 0 }
+      }
+    }
+  }
+
+  Item {
+    id: leaveGroup
+    anchors.fill: parent
+    layer.enabled: layer.wiping
+    layer.effect: MultiEffect {
+      maskEnabled: true
+      maskInverted: true
+      maskSource: wipeMask
+      maskThresholdMin: 0.5
+      maskSpreadAtMin: 0.02
+    }
+  }
+
+  Item {
+    id: enterGroup
+    anchors.fill: parent
+    layer.enabled: layer.wiping
+    layer.effect: MultiEffect {
+      maskEnabled: true
+      maskSource: wipeMask
+      maskThresholdMin: 0.5
+      maskSpreadAtMin: 0.02
+    }
+  }
 
   // First declared child — cards created later stack above it. Any press that
   // does NOT land on a card lands here and clears the selection.
@@ -63,7 +168,7 @@ PanelWindow {
         layer.cardComponent.errorString())
       return
     }
-    var card = layer.cardComponent.createObject(layer.contentItem, {
+    var card = layer.cardComponent.createObject(layer.wiping ? enterGroup : layer.contentItem, {
       service: layer.service,
       desktop: layer,
       widgetId: entry.id,
@@ -81,6 +186,7 @@ PanelWindow {
       return
     }
     layer.cards[entry.id] = card
+    if (layer.wiping) layer._enteringCards.push(card)
     // A freshly placed widget appears selected so its handles are visible.
     if (entry.center === true) layer.setSelected(entry.id)
   }
@@ -91,6 +197,7 @@ PanelWindow {
     card.styleId = entry.style
     card.textScale = Number(entry.scale || 1)
     card.locked = entry.locked === true
+    card.rotation = Number(entry.rotation) || 0
     card.x = entry.x
     card.y = entry.y
   }
