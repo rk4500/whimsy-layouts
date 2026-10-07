@@ -1,7 +1,7 @@
 import QtQuick
 import "Registry.js" as Reg
 
-// Loaded lazily by a cooperating background plugin (see io.github.rk4500.archer-background) so
+// Loaded lazily by a cooperating background plugin (see io.github.rk4500.synced-background) so
 // that plugin has no hard import of whimsy. notify() reports that the
 // wallpaper reveal animation just started.
 QtObject {

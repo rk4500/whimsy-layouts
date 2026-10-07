@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.rk4500.archer-whimsy",
-  "name": "Archer Whimsy",
+  "id": "io.github.rk4500.whimsy-layouts",
+  "name": "Whimsy Layouts",
   "version": "1.1.1",
-  "author": "archer (fork of rover)",
+  "author": "rk4500 (fork of rover's Whimsy)",
   "license": "MIT",
   "description": "A playful collection of desktop widgets for Omarchy: typographic clocks and date displays, analog/flip/cyber clocks, day progress, retro cassette and vinyl music players, audio visualizers, volume, hardware telemetry pills/rings, and weather styles — all placed as drag-to-desktop widgets.",
   "keepLoaded": true,
@@ -16,12 +16,13 @@
     "service": "Service.qml"
   },
   "barWidget": {
-    "displayName": "Archer Whimsy",
+    "displayName": "Whimsy Layouts",
     "description": "A playful widget suite — clocks, music players, visualizers, date displays, system telemetry, and weather",
     "category": "Widgets",
     "allowMultiple": false
   },
   "omarchy": {
     "clonedFrom": "whimsy"
-  }
+  },
+  "homepage": "https://github.com/rk4500/whimsy-layouts"
 }
