@@ -6,6 +6,8 @@ import qs.Commons
 // luminous monospace digits, and live 60-second micro progress ticker.
 Item {
   id: root
+  // Off while hidden (cards build every face) or while the desktop is covered.
+  property bool live: true
 
   property real clockScale: 1
   property color fgColor: Color.foreground
@@ -13,6 +15,7 @@ Item {
 
   SystemClock {
     id: liveClock
+    enabled: root.live && root.visible
     precision: SystemClock.Seconds
   }
 

@@ -3,6 +3,7 @@ import QtQuick.Effects
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.Commons
 
 // Per-screen layer that hosts all whimsy desktop widgets. One full-screen
@@ -23,6 +24,15 @@ PanelWindow {
   property bool keyboardActive: false
   property Component cardComponent: Qt.createComponent(
     Qt.resolvedUrl("DesktopCard.qml"), Component.PreferSynchronous)
+
+  // True while any window sits on this screen's active workspace. Hyprland keeps
+  // a bottom-layer surface "visible" and keeps requesting frames even when tiled
+  // windows hide it entirely, so cards pause their clocks and feeds themselves.
+  readonly property bool covered: {
+    var mon = layer.screen ? Hyprland.monitorFor(layer.screen) : null
+    var ws = mon ? mon.activeWorkspace : null
+    return !!ws && ws.toplevels.values.length > 0
+  }
 
   visible: true
   color: "transparent"

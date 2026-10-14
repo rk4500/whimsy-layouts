@@ -5,10 +5,12 @@ import "Model.js" as Model
 
 // Renders one day style: a primary line (the headline) and an optional
 // secondary caption. Used at natural scale on the desktop and at a fitted
-// scale inside the popup's preview cards. The SystemClock updates every
-// second so digital clocks and time formats stay accurate in real-time.
+// scale inside the popup's preview cards. The SystemClock ticks at the
+// coarsest precision the style's formats need (see below).
 Item {
   id: face
+  // Off while hidden (cards build every face) or while the desktop is covered.
+  property bool live: true
 
   required property string styleId
   property string defaultFamily: Style.font.family
@@ -48,11 +50,17 @@ Item {
     return style.family ? style.family : face.defaultFamily
   }
 
-  // SystemClock with Seconds precision ensures HH:mm, HH:mm:ss, and minutes
-  // update continuously and never stay frozen at 00.
+  // Tick only as fast as the format needs: a day/date face ticking every second
+  // keeps the full-screen widget layer re-rendering for nothing.
   SystemClock {
     id: clock
-    precision: SystemClock.Seconds
+    enabled: face.live && face.visible
+    precision: {
+      var fmt = String(face.style.primaryFormat || "") + String(face.style.secondaryFormat || "")
+      if (/s/.test(fmt)) return SystemClock.Seconds
+      if (/m/.test(fmt)) return SystemClock.Minutes
+      return SystemClock.Hours
+    }
   }
 
   width: implicitWidth

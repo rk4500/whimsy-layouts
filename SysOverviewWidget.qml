@@ -18,12 +18,9 @@ Item {
   property real batteryWatts: 0
   property bool batteryCharging: false
 
-  // Eases toward each new sample instead of snapping, since samples only
-  // arrive every pollInterval seconds (see SystemWidget.pollInterval).
+  // Snaps to each sample: easing repainted the CPU-side Canvas every frame
+  // (~100 software repaints per sample at 120Hz) on a layer that's usually hidden.
   property real animatedCpuPct: cpuPct
-  Behavior on animatedCpuPct {
-    NumberAnimation { duration: 900; easing.type: Easing.OutCubic }
-  }
 
   width: Style.space(310) * widgetScale
   height: Style.space(116) * widgetScale
@@ -41,46 +38,11 @@ Item {
       anchors.margins: Style.space(10) * root.widgetScale
       spacing: Style.space(14) * root.widgetScale
 
-      // ---- CPU ring dial (left deck, turntable-proportioned) --------------
+      // ---- CPU readout (left deck; ring removed: its Canvas repainted on every sample) ----
       Item {
         width: Style.space(96) * root.widgetScale
         height: Style.space(96) * root.widgetScale
         anchors.verticalCenter: parent.verticalCenter
-
-        Canvas {
-          id: ringCanvas
-          anchors.fill: parent
-          antialiasing: true
-
-          onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            var cx = width / 2
-            var cy = height / 2
-            var r = width * 0.42
-
-            ctx.beginPath()
-            ctx.arc(cx, cy, r, 0, Math.PI * 2, false)
-            ctx.lineWidth = 4 * root.widgetScale
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"
-            ctx.stroke()
-
-            var val = Math.max(0, Math.min(100, root.animatedCpuPct)) / 100.0
-            if (val > 0) {
-              ctx.beginPath()
-              ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * val, false)
-              ctx.lineWidth = 4 * root.widgetScale
-              ctx.strokeStyle = root.animatedCpuPct > 85 ? "#ef4444" : root.accentColor
-              ctx.lineCap = "round"
-              ctx.stroke()
-            }
-          }
-
-          Connections {
-            target: root
-            function onAnimatedCpuPctChanged() { ringCanvas.requestPaint() }
-          }
-        }
 
         Column {
           anchors.centerIn: parent

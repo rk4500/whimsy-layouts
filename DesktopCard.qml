@@ -18,6 +18,7 @@ Item {
 
   required property var service
   required property var desktop
+  readonly property bool paused: !!(desktop && desktop.covered)
   required property string widgetId
   required property string styleId
   required property var screen
@@ -132,6 +133,7 @@ Item {
     // ---- text-based widget (DayFace) ------------------------------------
   DayFace {
     id: face
+    live: !card.paused
     anchors.centerIn: parent
     visible: card.widgetKind === "text" || card.widgetKind === ""
     styleId: card.styleId
@@ -153,6 +155,7 @@ Item {
     SystemClock {
       id: analogClock
       precision: SystemClock.Seconds
+      enabled: analogFace.visible && !card.paused
     }
     hours: analogClock.hours
     minutes: analogClock.minutes
@@ -179,7 +182,7 @@ Item {
     anchors.centerIn: parent
     visible: card.widgetKind === "visualizer"
     variant: card.widgetVariant || "dots"
-    active: visible
+    active: visible && !card.paused
     visScale: card.textScale
     widgetWidth: Style.space(260) * card.textScale
     widgetHeight: Style.space(70) * card.textScale
@@ -201,6 +204,7 @@ Item {
   // ---- flip clock widget ------------------------------------------------
   FlipClock {
     id: flipFace
+    live: !card.paused
     z: 2
     anchors.centerIn: parent
     visible: card.widgetKind === "flip"
@@ -212,6 +216,7 @@ Item {
   // ---- cyberpunk hud clock widget ---------------------------------------
   CyberClock {
     id: cyberFace
+    live: !card.paused
     anchors.centerIn: parent
     visible: card.widgetKind === "cyber"
     clockScale: card.textScale
@@ -222,6 +227,7 @@ Item {
   // ---- day progress widget ----------------------------------------------
   DayProgress {
     id: progressFace
+    live: !card.paused
     anchors.centerIn: parent
     visible: card.widgetKind === "progress"
     widgetScale: card.textScale
@@ -235,7 +241,7 @@ Item {
     anchors.centerIn: parent
     visible: card.widgetKind === "system"
     variant: card.widgetVariant || "pill-cpu"
-    active: visible
+    active: visible && !card.paused
     widgetScale: card.textScale
     accentColor: Color.accent
     fgColor: Color.foreground
@@ -247,7 +253,7 @@ Item {
     anchors.centerIn: parent
     visible: card.widgetKind === "weather"
     variant: card.widgetVariant || "pill"
-    active: visible
+    active: visible  // not paused: its 10-min fetch timer would restart on every uncover
     widgetScale: card.textScale
     accentColor: Color.accent
     fgColor: Color.foreground

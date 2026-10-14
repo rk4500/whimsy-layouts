@@ -6,6 +6,8 @@ import qs.Commons
 // elapsed with a smooth gradient meter, countdown, and current date badge.
 Item {
   id: root
+  // Off while hidden (cards build every face) or while the desktop is covered.
+  property bool live: true
 
   property real widgetScale: 1
   property color fgColor: Color.foreground
@@ -13,6 +15,7 @@ Item {
 
   SystemClock {
     id: liveClock
+    enabled: root.live && root.visible
     precision: SystemClock.Minutes
   }
 
