@@ -134,6 +134,9 @@ Item {
   property color mutedColor: Util.alpha(Color.foreground, 0.6)
   property string variant: "card"
   property bool interactive: true
+  // Off while the desktop is covered (DesktopCard.paused): the spinning record
+  // otherwise redraws the full-screen widget layer at the display rate.
+  property bool live: true
 
   // ---- MPRIS connection ---------------------------------------------------
   readonly property var playersList: Mpris.players ? Mpris.players.values : []
@@ -216,7 +219,7 @@ Item {
   Timer {
     id: positionTicker
     interval: 500
-    running: root.playing && root.visible
+    running: root.playing && root.visible && root.live
     repeat: true
     onTriggered: {
       var playerPos = root.activePlayer ? Number(root.activePlayer.position || 0) : 0
@@ -767,7 +770,10 @@ Item {
             to: 360
             duration: 3600
             loops: Animation.Infinite
-            running: root.playing
+            // Pause rather than stop, so the record keeps its angle across
+            // play/pause and while the desktop is covered.
+            running: true
+            paused: !root.playing || !root.live || !root.visible
           }
         }
 
@@ -1138,7 +1144,10 @@ Item {
               to: 360
               duration: 2400
               loops: Animation.Infinite
-              running: root.playing
+              // Pause rather than stop, so the record keeps its angle across
+              // play/pause and while the desktop is covered.
+              running: true
+              paused: !root.playing || !root.live || !root.visible
             }
           }
 
@@ -1222,7 +1231,10 @@ Item {
               to: 360
               duration: 2400
               loops: Animation.Infinite
-              running: root.playing
+              // Pause rather than stop, so the record keeps its angle across
+              // play/pause and while the desktop is covered.
+              running: true
+              paused: !root.playing || !root.live || !root.visible
             }
           }
         }

@@ -165,6 +165,7 @@ Item {
   // ---- music widget ----------------------------------------------------
   MusicWidget {
     id: musicFace
+    live: !card.paused
     z: 2
     anchors.centerIn: parent
     visible: card.widgetKind === "music"
