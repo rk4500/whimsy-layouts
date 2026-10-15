@@ -154,7 +154,8 @@ Item {
 
     SystemClock {
       id: analogClock
-      precision: SystemClock.Seconds
+      // Two-hand face has no second hand: tick once a minute
+      precision: analogFace.variant === "slick" ? SystemClock.Minutes : SystemClock.Seconds
       enabled: analogFace.visible && !card.paused
     }
     hours: analogClock.hours

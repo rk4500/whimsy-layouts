@@ -274,7 +274,7 @@ Panel {
 
               SystemClock {
                 id: analogClock
-                precision: SystemClock.Seconds
+                precision: previewAnalog.variant === "slick" ? SystemClock.Minutes : SystemClock.Seconds
               }
               hours: analogClock.hours
               minutes: analogClock.minutes

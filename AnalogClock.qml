@@ -37,6 +37,40 @@ Item {
     _prevSeconds = root.seconds
   }
 
+  // Minute-resolution hand angles for the two-hand (slick) face. Forward-only
+  // so 59 -> 0 and 11 -> 12 glide on instead of unwinding ~360 degrees.
+  property real minuteRotation: 0
+  property real hourRotation: 0
+  property bool animateHands: true
+  property int _prevTotal: -1
+
+  function _syncHands() {
+    var total = (Math.floor(root.hours) % 12) * 60 + Math.floor(root.minutes)
+    if (_prevTotal < 0) {
+      // First value: place the hands without animating
+      animateHands = false
+      minuteRotation = (total % 60) * 6
+      hourRotation = total * 0.5
+      animateHands = true
+    } else {
+      // Always animate forward to the right time, even after a long sleep.
+      // The minute hand covers (minutes mod 60), under one revolution; the
+      // hour hand covers under half a day (< 360 deg).
+      var step = (total - _prevTotal + 720) % 720
+      var minStep = ((total % 60) - (_prevTotal % 60) + 60) % 60
+      if (step > 0) {
+        minuteRotation += minStep * 6
+        hourRotation += step * 0.5
+      }
+    }
+    _prevTotal = total
+  }
+  // Hours and minutes both change at the top of the hour; defer so the
+  // handler sees one consistent time instead of a half-updated one.
+  onHoursChanged: Qt.callLater(_syncHands)
+  onMinutesChanged: Qt.callLater(_syncHands)
+  Component.onCompleted: _syncHands()
+
   width: clockSize
   height: clockSize
 
@@ -92,7 +126,11 @@ Item {
       anchors.centerIn: parent
       width: root.clockSize
       height: root.clockSize
-      rotation: (root.hours % 12 + root.minutes / 60) * 30
+      rotation: root.hourRotation
+      Behavior on rotation {
+        enabled: root.animateHands
+        NumberAnimation { duration: 700; easing.type: Easing.InOutCubic }
+      }
 
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -110,7 +148,11 @@ Item {
       anchors.centerIn: parent
       width: root.clockSize
       height: root.clockSize
-      rotation: (root.minutes + root.seconds / 60) * 6
+      rotation: root.minuteRotation
+      Behavior on rotation {
+        enabled: root.animateHands
+        NumberAnimation { duration: 700; easing.type: Easing.InOutCubic }
+      }
 
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
