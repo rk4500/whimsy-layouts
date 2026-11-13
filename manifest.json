@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.rk4500.whimsy-layouts",
   "name": "Whimsy Layouts",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "rk4500 (fork of rover's Whimsy)",
   "license": "MIT",
   "description": "A playful collection of desktop widgets for Omarchy: typographic clocks and date displays, analog/flip/cyber clocks, day progress, retro cassette and vinyl music players, audio visualizers, volume, hardware telemetry pills/rings, and weather styles — all placed as drag-to-desktop widgets.",

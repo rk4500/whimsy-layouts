@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Model.js" as Model
@@ -55,11 +56,19 @@ Panel {
     return null
   }
 
+  Process {
+    id: placeIpcProc
+  }
+
   function placeWidget(styleId) {
     var svc = Reg.get()
-    if (!svc) return
     var screenObj = root.panelScreen()
-    svc.placeWidget(styleId, screenObj ? screenObj.name : "")
+    var sName = screenObj ? screenObj.name : ""
+    if (svc && typeof svc.placeWidget === "function") {
+      svc.placeWidget(styleId, sName)
+    } else {
+      placeIpcProc.exec(["omarchy-shell", "shell", "whimsy.service", "place", String(styleId || "")])
+    }
     root.close()
   }
 
@@ -203,17 +212,6 @@ Panel {
             onClicked: root.toggleEditLocked()
           }
         }
-      }
-
-      Text {
-        width: parent.width
-        visible: root.editLocked
-        text: "Desktop widgets locked — drag/resize/remove hidden"
-        horizontalAlignment: Text.AlignHCenter
-        color: Util.alpha(root.barForeground, 0.5)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-        renderType: Text.NativeRendering
       }
 
       Rectangle {
