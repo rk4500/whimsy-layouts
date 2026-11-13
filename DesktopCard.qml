@@ -474,7 +474,7 @@ Item {
     hoverEnabled: true
     enabled: card.inputReady && !card.editLocked
     acceptedButtons: Qt.LeftButton | Qt.RightButton
-    cursorShape: card.locked ? Qt.ArrowCursor : (drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+    cursorShape: (card.locked || card.editLocked) ? Qt.ArrowCursor : (drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
 
     drag.target: card.locked ? null : card
     drag.axis: Drag.XAndYAxis
