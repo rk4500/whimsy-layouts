@@ -516,27 +516,62 @@ Item {
     onReleased: function(mouse) {
       if (mouse.button === Qt.LeftButton && moving) {
         moving = false
+        card.clearGuides()
         card.settleAround()
       }
     }
 
-    onCanceled: moving = false
+    onCanceled: { moving = false; card.clearGuides() }
   }
 
-  // ---- grid snapping -------------------------------------------------------
-  // Unrotated cards snap their top-left corner; rotated cards snap their
-  // centre, since a tilted card's visible edges never sit on grid lines.
-  readonly property int gridSize: 20
+  // ---- snapping --------------------------------------------------------------
+  // Per axis, the card snaps when within snapThreshold of one of:
+  //   - its visible edge at edgeMargin from the screen edge (top: below the bar)
+  //   - its centre on the 1/4, 1/2 or 3/4 line
+  // Edges are the visible face (card bounds minus pad), rotated cards use
+  // their rotated bounding box. The matched line is shown by the desktop layer.
+  readonly property int edgeMargin: 24
+  readonly property int snapThreshold: 12
+
+  function clearGuides() {
+    card.desktop.guideX = -1
+    card.desktop.guideY = -1
+  }
+
+  function _snapAxis(centre, half, lo, hi) {
+    var best = null
+    function consider(cand, line) {
+      var d = Math.abs(cand - centre)
+      if (d <= card.snapThreshold && (!best || d < best.d)) best = { d: d, centre: cand, line: line }
+    }
+    var a = lo + card.edgeMargin, b = hi - card.edgeMargin
+    consider(a + half, a)
+    consider(b - half, b)
+    var span = hi - lo
+    consider(lo + span / 4, lo + span / 4)
+    consider(lo + span / 2, lo + span / 2)
+    consider(lo + span * 3 / 4, lo + span * 3 / 4)
+    return best
+  }
 
   function snapPosition(nx, ny, snap) {
-    if (!snap) return Qt.point(nx, ny)
-    var g = card.gridSize
-    if (Math.abs(card.rotation % 360) > 0.5) {
-      var cx = Math.round((nx + card.width / 2) / g) * g
-      var cy = Math.round((ny + card.height / 2) / g) * g
-      return Qt.point(cx - card.width / 2, cy - card.height / 2)
+    if (!snap || !card.screen) {
+      card.desktop.guideX = -1
+      card.desktop.guideY = -1
+      return Qt.point(nx, ny)
     }
-    return Qt.point(Math.round(nx / g) * g, Math.round(ny / g) * g)
+    var w = card.width - card.pad * 2, h = card.height - card.pad * 2
+    var r = card.rotation * Math.PI / 180
+    var hx = (Math.abs(w * Math.cos(r)) + Math.abs(h * Math.sin(r))) / 2
+    var hy = (Math.abs(w * Math.sin(r)) + Math.abs(h * Math.cos(r))) / 2
+    var cx = nx + card.width / 2, cy = ny + card.height / 2
+    var sx = card._snapAxis(cx, hx, 0, card.screen.width)
+    var sy = card._snapAxis(cy, hy, Style.bar.sizeHorizontal, card.screen.height)
+    card.desktop.guideX = sx ? sx.line : -1
+    card.desktop.guideY = sy ? sy.line : -1
+    if (sx) cx = sx.centre
+    if (sy) cy = sy.centre
+    return Qt.point(cx - card.width / 2, cy - card.height / 2)
   }
 
   function removeRequested() {

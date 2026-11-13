@@ -22,6 +22,9 @@ PanelWindow {
   property string selectedId: ""
   // Set true by editable widgets (e.g. StickyNote) while keyboard is needed.
   property bool keyboardActive: false
+  // Snap guide lines shown while a card is dragged (-1 = none). Set by cards.
+  property real guideX: -1
+  property real guideY: -1
   property Component cardComponent: Qt.createComponent(
     Qt.resolvedUrl("DesktopCard.qml"), Component.PreferSynchronous)
 
@@ -144,6 +147,26 @@ PanelWindow {
       maskThresholdMin: 0.5
       maskSpreadAtMin: 0.02
     }
+  }
+
+  // ---- snap guides ---------------------------------------------------------
+  Rectangle {
+    z: 50
+    visible: layer.guideX >= 0
+    x: Math.round(layer.guideX)
+    width: 1
+    height: parent.height
+    color: Color.accent
+    opacity: 0.7
+  }
+  Rectangle {
+    z: 50
+    visible: layer.guideY >= 0
+    y: Math.round(layer.guideY)
+    width: parent.width
+    height: 1
+    color: Color.accent
+    opacity: 0.7
   }
 
   // First declared child — cards created later stack above it. Any press that
