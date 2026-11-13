@@ -474,11 +474,15 @@ Item {
     hoverEnabled: true
     enabled: card.inputReady && !card.editLocked
     acceptedButtons: Qt.LeftButton | Qt.RightButton
-    cursorShape: (card.locked || card.editLocked) ? Qt.ArrowCursor : (drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+    cursorShape: (card.locked || card.editLocked) ? Qt.ArrowCursor : (moving ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
 
-    drag.target: card.locked ? null : card
-    drag.axis: Drag.XAndYAxis
-    drag.smoothed: false
+    // Moved by hand (not drag.target) so the position can snap to the grid
+    // while dragging. Hold Shift to place freely.
+    property bool moving: false
+    property real startSceneX: 0
+    property real startSceneY: 0
+    property real startX: 0
+    property real startY: 0
 
     onPressed: function(mouse) {
       if (mouse.button === Qt.RightButton) {
@@ -488,14 +492,51 @@ Item {
       if (mouse.button === Qt.LeftButton) {
         card.grabSelect()
         card.keepCentered = false
+        var pt = mapToItem(null, mouse.x, mouse.y)
+        startSceneX = pt.x
+        startSceneY = pt.y
+        startX = card.x
+        startY = card.y
       }
     }
 
+    onPositionChanged: function(mouse) {
+      if (card.locked || !(mouse.buttons & Qt.LeftButton)) return
+      var pt = mapToItem(null, mouse.x, mouse.y)
+      var dx = pt.x - startSceneX
+      var dy = pt.y - startSceneY
+      // Small threshold so a click to select doesn't nudge the card.
+      if (!moving && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      moving = true
+      var p = card.snapPosition(startX + dx, startY + dy, !(mouse.modifiers & Qt.ShiftModifier))
+      card.x = p.x
+      card.y = p.y
+    }
+
     onReleased: function(mouse) {
-      if (mouse.button === Qt.LeftButton) {
+      if (mouse.button === Qt.LeftButton && moving) {
+        moving = false
         card.settleAround()
       }
     }
+
+    onCanceled: moving = false
+  }
+
+  // ---- grid snapping -------------------------------------------------------
+  // Unrotated cards snap their top-left corner; rotated cards snap their
+  // centre, since a tilted card's visible edges never sit on grid lines.
+  readonly property int gridSize: 20
+
+  function snapPosition(nx, ny, snap) {
+    if (!snap) return Qt.point(nx, ny)
+    var g = card.gridSize
+    if (Math.abs(card.rotation % 360) > 0.5) {
+      var cx = Math.round((nx + card.width / 2) / g) * g
+      var cy = Math.round((ny + card.height / 2) / g) * g
+      return Qt.point(cx - card.width / 2, cy - card.height / 2)
+    }
+    return Qt.point(Math.round(nx / g) * g, Math.round(ny / g) * g)
   }
 
   function removeRequested() {
